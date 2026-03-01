@@ -8,6 +8,8 @@
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 #include <tlhelp32.h>
+#include <shellapi.h>
+#pragma comment(lib, "shell32.lib")
 #include <string>
 #include <thread>
 #include <atomic>
@@ -85,13 +87,63 @@ static std::atomic<int> g_listeningFor{ -1 };
 // Font for the Spotify status line (loaded at a larger size)
 static ImFont* g_fontStatus = nullptr;
 
-// -----------------------------------------------------------------------
-// Controller thread
-// Uses raw SDL_Joystick (not SDL_GameController) + SDL_JoystickUpdate()
-// which is safe to call from a background thread and works when the app
-// is not in focus, provided SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS="1".
-// -----------------------------------------------------------------------
 
+
+
+// System tray  so when the user minimizes the window it hides from the taskbar
+
+#define WM_TRAYICON (WM_USER + 1)
+#define TRAY_ID     1
+
+static NOTIFYICONDATAA g_nid{};
+static HWND            g_hwnd = nullptr;
+
+static void TrayAdd(HWND hwnd)
+{
+    g_hwnd = hwnd;
+    ZeroMemory(&g_nid, sizeof(g_nid));
+    g_nid.cbSize = sizeof(g_nid);
+    g_nid.hWnd = hwnd;
+    g_nid.uID = TRAY_ID;
+    g_nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    g_nid.uCallbackMessage = WM_TRAYICON;
+    g_nid.hIcon = LoadIcon(GetModuleHandle(nullptr), MAKEINTRESOURCE(1));
+    strncpy_s(g_nid.szTip, sizeof(g_nid.szTip), "DS4 Spotify Controller", _TRUNCATE);
+    Shell_NotifyIconA(NIM_ADD, &g_nid);
+}
+
+static void TrayRemove()
+{
+    Shell_NotifyIconA(NIM_DELETE, &g_nid);
+}
+
+static void TrayShowWindow()
+{
+    ShowWindow(g_hwnd, SW_RESTORE);
+    SetForegroundWindow(g_hwnd);
+}
+
+// Subclassed WndProc to intercept minimize and tray clicks
+static WNDPROC g_origWndProc = nullptr;
+static LRESULT CALLBACK TrayWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+    if (msg == WM_SYSCOMMAND && (wp & 0xFFF0) == SC_MINIMIZE)
+    {
+        // Hide from taskbar instead of minimizing
+        ShowWindow(hwnd, SW_HIDE);
+        return 0;
+    }
+    if (msg == WM_TRAYICON)
+    {
+        if (lp == WM_LBUTTONDBLCLK || lp == WM_LBUTTONUP)
+            TrayShowWindow();
+        return 0;
+    }
+    return CallWindowProc(g_origWndProc, hwnd, msg, wp, lp);
+}
+
+
+// Controller thread
 static std::atomic<bool> g_running{ true };
 
 static void ControllerThread()
@@ -114,8 +166,6 @@ static void ControllerThread()
     bool prevState[32] = {};
 
     // Poll at 250Hz (4ms) to matches DS4 USB HID report rate.
-    // SDL_Delay is imprecise so we use a high-res spin-wait for the interval, but only after sleeping most of the 4ms to avoid burning a full CPU core.
-
     LARGE_INTEGER freq, next, now;
     QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&next);
@@ -249,6 +299,16 @@ int main(int, char**)
         DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &captionColor, sizeof(captionColor));
     }
 
+    // Install window subclass for minimize-to-tray behaviour
+    {
+        SDL_SysWMinfo wm{};
+        SDL_VERSION(&wm.version);
+        SDL_GetWindowWMInfo(window, &wm);
+        HWND hwnd = wm.info.win.window;
+        g_origWndProc = (WNDPROC)SetWindowLongPtrA(hwnd, GWLP_WNDPROC, (LONG_PTR)TrayWndProc);
+        TrayAdd(hwnd);
+    }
+
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1,
         SDL_RENDERER_PRESENTVSYNC | SDL_RENDERER_ACCELERATED);
     if (!renderer) return 1;
@@ -364,6 +424,8 @@ int main(int, char**)
 
     g_running = false;
     ctrlThread.join();
+
+    TrayRemove();
 
     ImGui_ImplSDLRenderer2_Shutdown();
     ImGui_ImplSDL2_Shutdown();
