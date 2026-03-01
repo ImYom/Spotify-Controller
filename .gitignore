@@ -1,0 +1,24 @@
+# Build output
+build/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.sdf
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+
+# Third party (these should be submodules or fetched separately)
+third_party/
+
+# Compiled output
+*.exe
+*.obj
+*.lib
+*.pdb
+*.ilk
+*.exp
