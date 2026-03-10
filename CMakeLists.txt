@@ -4,7 +4,7 @@ project(DS4SpotifyController)
 set(CMAKE_CXX_STANDARD 17)
 
 # --------------
-# Dependencies -
+# Dependencies 
 # --------------
 # SDL2: set SDL2_DIR or SDL2_ROOT, e.g.:
 #   cmake -DSDL2_ROOT=C:/libs/SDL2 ..
