@@ -3,17 +3,16 @@ project(DS4SpotifyController)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# -----------------------------------------------------------------------
-# Dependencies — adjust paths to match your system
-# -----------------------------------------------------------------------
+# --------------
+# Dependencies -
+# --------------
 # SDL2: set SDL2_DIR or SDL2_ROOT, e.g.:
 #   cmake -DSDL2_ROOT=C:/libs/SDL2 ..
-#
+
 # Dear ImGui: we expect the imgui source to be in ./imgui/
 # (clone https://github.com/ocornut/imgui into the project root)
-# -----------------------------------------------------------------------
 
-# Link SDL2 statically — no SDL2.dll needed
+# Link SDL2 statically
 set(SDL2_STATIC ON)
 set(BUILD_SHARED_LIBS OFF)
 find_package(SDL2 REQUIRED)
@@ -56,8 +55,6 @@ else()
     target_link_libraries(DS4SpotifyController PRIVATE ${SDL2_LIBRARIES})
 endif()
 
-# Windows subsystem — keeps the console hidden; swap to CONSOLE for debugging
-# Already handled by WIN32 flag above, but let's be explicit for MSVC:
 if(MSVC)
     # Use static CRT to match SDL2-static
     set_property(TARGET DS4SpotifyController PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
