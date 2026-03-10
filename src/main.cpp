@@ -198,6 +198,10 @@ static void ControllerThread()
 
     bool prevJoy[64] = {};
     bool prevPad[SDL_CONTROLLER_BUTTON_MAX] = {};
+    bool prevJoyAxis[16] = {};
+    bool prevPadAxis[SDL_CONTROLLER_AXIS_MAX] = {};
+    constexpr Sint16 TRIGGER_THRESHOLD = 16384;
+    constexpr int    AXIS_BUTTON_OFFSET = 1000;
 
     LARGE_INTEGER freq, next, now;
     QueryPerformanceFrequency(&freq);
@@ -226,6 +230,8 @@ static void ControllerThread()
             closeController();
             memset(prevJoy, 0, sizeof(prevJoy));
             memset(prevPad, 0, sizeof(prevPad));
+            memset(prevJoyAxis, 0, sizeof(prevJoyAxis));
+            memset(prevPadAxis, 0, sizeof(prevPadAxis));
         }
 
         if (instanceID == -1) { Sleep(100); QueryPerformanceCounter(&next); continue; }
@@ -259,6 +265,13 @@ static void ControllerThread()
                 if (cur && !prevPad[b]) onButton(b);
                 prevPad[b] = cur;
             }
+            // Triggers (LT = axis 4, RT = axis 5), range 0..32767
+            for (int ax = SDL_CONTROLLER_AXIS_TRIGGERLEFT; ax <= SDL_CONTROLLER_AXIS_TRIGGERRIGHT; ++ax)
+            {
+                bool cur = SDL_GameControllerGetAxis(gamepad, (SDL_GameControllerAxis)ax) > TRIGGER_THRESHOLD;
+                if (cur && !prevPadAxis[ax]) onButton(AXIS_BUTTON_OFFSET + ax);
+                prevPadAxis[ax] = cur;
+            }
         }
         else if (joystick)
         {
@@ -270,6 +283,15 @@ static void ControllerThread()
                 bool cur = SDL_JoystickGetButton(joystick, b) != 0;
                 if (cur && !prevJoy[b]) onButton(b);
                 prevJoy[b] = cur;
+            }
+            // Triggers — DS4 L2=axis3, R2=axis4, rest at -32768, full at 32767
+            int numAxes = SDL_JoystickNumAxes(joystick);
+            if (numAxes > 16) numAxes = 16;
+            for (int ax = 0; ax < numAxes; ++ax)
+            {
+                bool cur = SDL_JoystickGetAxis(joystick, ax) > TRIGGER_THRESHOLD;
+                if (cur && !prevJoyAxis[ax]) onButton(AXIS_BUTTON_OFFSET + ax);
+                prevJoyAxis[ax] = cur;
             }
         }
 

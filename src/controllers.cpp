@@ -1,4 +1,5 @@
 #include "controllers.h"
+#include <SDL.h>
 #include <cctype>
 #include <algorithm>
 
@@ -53,6 +54,29 @@ ControllerType DetectControllerType(const char* sdlName)
 const char* GetButtonName(ControllerType type, int button)
 {
     if (button < 0) return "Unknown";
+
+    // Virtual trigger axis buttons (offset 1000+)
+    if (button >= 1000)
+    {
+        int ax = button - 1000;
+        switch (type)
+        {
+        case ControllerType::XboxOne:
+            if (ax == SDL_CONTROLLER_AXIS_TRIGGERLEFT)  return "LT";
+            if (ax == SDL_CONTROLLER_AXIS_TRIGGERRIGHT) return "RT";
+            break;
+        case ControllerType::DS4:
+        case ControllerType::DS5:
+            if (ax == 4) return "L2";
+            if (ax == 5) return "R2";
+            break;
+        default: break;
+        }
+        static char axfallback[16];
+        snprintf(axfallback, sizeof(axfallback), "Axis %d", ax);
+        return axfallback;
+    }
+
     switch (type)
     {
     case ControllerType::DS4:
@@ -66,6 +90,7 @@ const char* GetButtonName(ControllerType type, int button)
         break;
     default: break;
     }
+
     static char fallback[16];
     snprintf(fallback, sizeof(fallback), "Button %d", button);
     return fallback;
