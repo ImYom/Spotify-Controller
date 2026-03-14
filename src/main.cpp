@@ -310,6 +310,10 @@ static void ControllerThread()
 // Entry point
 int main(int, char**)
 {
+    SDL_SetHint(SDL_HINT_XINPUT_ENABLED, "0");
+    SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS4, "1");
+    SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI_PS5, "1");
+
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "1");
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -359,15 +363,25 @@ int main(int, char**)
     const float colAction = 10.f, colBound = 200.f, colBtn = 370.f;
     bool done = false;
 
+    bool   spotifyUp = false;
+    Uint32 lastSpotifyCheck = 0;
+
     while (!done)
     {
         SDL_Event e;
         while (SDL_PollEvent(&e))
         {
             ImGui_ImplSDL2_ProcessEvent(&e);
-            if (e.type == SDL_QUIT)             done = true;
+            if (e.type == SDL_QUIT)                  done = true;
             else if (e.type == SDL_JOYDEVICEADDED)   g_deviceAdded.store(e.jdevice.which);
             else if (e.type == SDL_JOYDEVICEREMOVED) g_deviceRemoved.store(e.jdevice.which);
+        }
+
+        Uint32 nowTicks = SDL_GetTicks();
+        if (nowTicks - lastSpotifyCheck >= 1000)
+        {
+            spotifyUp = FindSpotifyWindow() != nullptr;
+            lastSpotifyCheck = nowTicks;
         }
 
         ImGui_ImplSDLRenderer2_NewFrame();
@@ -381,7 +395,6 @@ int main(int, char**)
             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
 
         ImGui::PushFont(g_fontStatus);
-        bool spotifyUp = FindSpotifyWindow() != nullptr;
         ImGui::TextColored(spotifyUp ? ImVec4{ 0.3f,1.f,0.3f,1.f } : ImVec4{ 1.f,0.4f,0.4f,1.f },
             "Spotify: %s", spotifyUp ? "Running" : "Not detected");
         bool ctrlUp = g_controllerType != ControllerType::Unknown;
